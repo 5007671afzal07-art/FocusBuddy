@@ -1,27 +1,13 @@
 import React from 'react';
-import clsx from 'clsx';
+import { Loader } from 'lucide-react';
 
-interface LoadingSpinnerProps {
-  size?: 'sm' | 'md' | 'lg';
-  text?: string;
-}
-
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', text }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12',
-  };
-
+const LoadingSpinner: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center gap-3">
-      <div
-        className={clsx(
-          'border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin',
-          sizeClasses[size]
-        )}
-      />
-      {text && <p className="text-sm text-gray-600">{text}</p>}
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <Loader className="mx-auto mb-4 animate-spin text-primary-600" size={48} />
+        <p className="text-gray-600 font-medium">Loading...</p>
+      </div>
     </div>
   );
 };

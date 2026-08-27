@@ -1,170 +1,142 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
-import { Profile } from '@/types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+  avatar_url?: string;
+  bio?: string;
+  location?: string;
+  level: number;
+  total_sessions: number;
+  total_focus_minutes: number;
+  current_streak: number;
+  total_points: number;
+  experience_points: number;
+  created_at?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
+  isAuthenticated: boolean;
+  profile: UserProfile | null;
   loading: boolean;
-  error: string | null;
-  signUp: (email: string, password: string, username: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (username: string, email: string, password: string) => Promise<void>;
+  logOut: () => void;
+  updateProfile: (updates: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEFAULT_PROFILE: UserProfile = {
+  id: '1',
+  username: 'focususer',
+  email: 'user@example.com',
+  avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=focususer',
+  bio: 'Passionate about productivity and focus',
+  location: 'San Francisco, CA',
+  level: 5,
+  total_sessions: 42,
+  total_focus_minutes: 1260,
+  current_streak: 7,
+  total_points: 2540,
+  experience_points: 540,
+  created_at: '2024-01-15',
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Initialize auth state on mount
+  // Check if user is logged in on mount
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        }
-      } catch (err) {
-        console.error('Auth initialization error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize auth');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription?.unsubscribe();
-    };
+    const token = localStorage.getItem('authToken');
+    const savedProfile = localStorage.getItem('userProfile');
+    
+    if (token && savedProfile) {
+      setProfile(JSON.parse(savedProfile));
+      setIsAuthenticated(true);
+    }
+    
+    setLoading(false);
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Profile doesn't exist yet
-          return;
-        }
-        throw error;
-      }
-
-      setProfile(data);
-    } catch (err) {
-      console.error('Profile fetch error:', err);
-    }
-  };
-
-  const signUp = async (email: string, password: string, username: string) => {
-    try {
-      setError(null);
+      setLoading(true);
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       
-      const { data: { user: newUser }, error: signUpError } = await supabase.auth.signUp({
+      const userProfile: UserProfile = {
+        ...DEFAULT_PROFILE,
         email,
-        password,
-      });
-
-      if (signUpError) throw signUpError;
-      if (!newUser) throw new Error('Sign up failed');
-
-      // Create profile
-      const { error: profileError } = await supabase.from('profiles').insert([
-        {
-          user_id: newUser.id,
-          username,
-          email,
-          daily_screen_time_goal: 180, // 3 hours default
-          notification_preference: 'all',
-        },
-      ]);
-
-      if (profileError) throw profileError;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign up failed';
-      setError(message);
-      throw err;
-    }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      setError(null);
+      };
       
-      const { error } = await supabase.auth.signInWithPassword({
+      localStorage.setItem('authToken', 'mock-token-' + Date.now());
+      localStorage.setItem('userProfile', JSON.stringify(userProfile));
+      
+      setProfile(userProfile);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signup = async (username: string, email: string, password: string) => {
+    try {
+      setLoading(true);
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      const userProfile: UserProfile = {
+        ...DEFAULT_PROFILE,
+        username,
         email,
-        password,
-      });
-
-      if (error) throw error;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign in failed';
-      setError(message);
-      throw err;
+        id: Math.random().toString(36).substr(2, 9),
+      };
+      
+      localStorage.setItem('authToken', 'mock-token-' + Date.now());
+      localStorage.setItem('userProfile', JSON.stringify(userProfile));
+      
+      setProfile(userProfile);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Signup failed:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signOut = async () => {
-    try {
-      setError(null);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setProfile(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign out failed';
-      setError(message);
-      throw err;
-    }
+  const logOut = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userProfile');
+    setProfile(null);
+    setIsAuthenticated(false);
   };
 
-  const resetPassword = async (email: string) => {
-    try {
-      setError(null);
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Password reset failed';
-      setError(message);
-      throw err;
+  const updateProfile = (updates: Partial<UserProfile>) => {
+    if (profile) {
+      const updatedProfile = { ...profile, ...updates };
+      setProfile(updatedProfile);
+      localStorage.setItem('userProfile', JSON.stringify(updatedProfile));
     }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        isAuthenticated,
         profile,
         loading,
-        error,
-        signUp,
-        signIn,
-        signOut,
-        resetPassword,
+        login,
+        signup,
+        logOut,
+        updateProfile,
       }}
     >
       {children}
@@ -172,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

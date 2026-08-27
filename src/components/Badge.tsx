@@ -1,41 +1,34 @@
 import React from 'react';
-import clsx from 'clsx';
 
-interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'primary' | 'success' | 'warning' | 'danger' | 'gray';
-  size?: 'sm' | 'md' | 'lg';
+interface BadgeProps {
+  children: React.ReactNode;
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning';
+  size?: 'sm' | 'md';
+  className?: string;
 }
 
 const Badge: React.FC<BadgeProps> = ({
+  children,
   variant = 'primary',
   size = 'md',
-  className,
-  children,
-  ...props
+  className = '',
 }) => {
   const variantClasses = {
     primary: 'bg-primary-100 text-primary-700',
+    secondary: 'bg-gray-200 text-gray-800',
     success: 'bg-green-100 text-green-700',
-    warning: 'bg-yellow-100 text-yellow-700',
     danger: 'bg-red-100 text-red-700',
-    gray: 'bg-gray-100 text-gray-700',
+    warning: 'bg-yellow-100 text-yellow-700',
   };
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',
-    md: 'px-3 py-1 text-sm',
-    lg: 'px-4 py-2 text-base',
+    md: 'px-3 py-1.5 text-sm',
   };
 
   return (
     <span
-      className={clsx(
-        'badge rounded-full font-medium inline-block',
-        variantClasses[variant],
-        sizeClasses[size],
-        className
-      )}
-      {...props}
+      className={`inline-block rounded-full font-medium ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
     >
       {children}
     </span>

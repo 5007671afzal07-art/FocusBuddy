@@ -1,18 +1,17 @@
 import React from 'react';
-import clsx from 'clsx';
 
 interface ProgressBarProps {
   percentage: number;
   showLabel?: boolean;
-  color?: string;
   size?: 'sm' | 'md' | 'lg';
+  color?: 'primary' | 'success' | 'warning' | 'danger';
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
   percentage,
   showLabel = true,
-  color = 'bg-primary-600',
   size = 'md',
+  color = 'primary',
 }) => {
   const sizeClasses = {
     sm: 'h-2',
@@ -20,18 +19,23 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     lg: 'h-4',
   };
 
+  const colorClasses = {
+    primary: 'bg-primary-600',
+    success: 'bg-green-600',
+    warning: 'bg-yellow-600',
+    danger: 'bg-red-600',
+  };
+
   return (
     <div className="w-full">
-      <div className={clsx('w-full bg-gray-200 rounded-full overflow-hidden', sizeClasses[size])}>
+      <div className={`w-full bg-gray-200 rounded-full overflow-hidden ${sizeClasses[size]}`}>
         <div
-          className={clsx(color, 'h-full transition-all duration-500')}
+          className={`${colorClasses[color]} h-full transition-all duration-300 rounded-full`}
           style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
         />
       </div>
       {showLabel && (
-        <p className="mt-2 text-sm font-medium text-gray-600 text-right">
-          {Math.round(percentage)}%
-        </p>
+        <p className="text-sm text-gray-600 mt-1">{Math.round(percentage)}%</p>
       )}
     </div>
   );
