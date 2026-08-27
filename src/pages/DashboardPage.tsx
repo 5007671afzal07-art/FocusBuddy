@@ -1,162 +1,155 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, TrendingDown, Zap, Target } from 'lucide-react';
+import { Play, Pause, RotateCcw, Zap, Target, Users, Trophy } from 'lucide-react';
 import Card from '@/components/Card';
-import Badge from '@/components/Badge';
-import ProgressRing from '@/components/ProgressRing';
-import ProgressBar from '@/components/ProgressBar';
 import Button from '@/components/Button';
+import Badge from '@/components/Badge';
+import ProgressBar from '@/components/ProgressBar';
 import { useAuth } from '@/contexts/AuthContext';
-import { generateDemoUsageEntries, generateDemoFocusSessions } from '@/services/demoDataService';
-import { formatTime, calculateStreak } from '@/utils/calculations';
-import { InsightEngine } from '@/services/insightEngine';
-import { getDateKey } from '@/utils/calculations';
+import { useToast } from '@/contexts/ToastContext';
 
 const DashboardPage: React.FC = () => {
-  const { profile } = useAuth();
-  const [usageEntries] = useState(() => generateDemoUsageEntries());
-  const [focusSessions] = useState(() => generateDemoFocusSessions());
-  const [insights, setInsights] = useState<string[]>([]);
+  const { profile, updateProfile } = useAuth();
+  const { addToast } = useToast();
+  const [isRunning, setIsRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [totalTime] = useState(25 * 60);
+  const [sessionsToday, setSessionsToday] = useState(0);
 
   useEffect(() => {
-    setInsights(InsightEngine.generateInsights(usageEntries, focusSessions));
-  }, [usageEntries, focusSessions]);
+    let interval: NodeJS.Timeout;
+    if (isRunning && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isRunning) {
+      setIsRunning(false);
+      setSessionsToday((prev) => prev + 1);
+      addToast('Great job! Session completed! 🎉', 'success');
+      setTimeLeft(25 * 60);
+      updateProfile({
+        total_sessions: (profile?.total_sessions || 0) + 1,
+        total_focus_minutes: (profile?.total_focus_minutes || 0) + 25,
+        total_points: (profile?.total_points || 0) + 20,
+      });
+    }
+    return () => clearInterval(interval);
+  }, [isRunning, timeLeft, profile, updateProfile, addToast]);
 
-  const today = getDateKey();
-  const todayUsage = usageEntries.filter((e) => e.date === today);
-  const todayFocus = focusSessions.filter((s) => s.created_at.split('T')[0] === today && s.is_completed);
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
-  const totalScreenTime = todayUsage.reduce((sum, e) => sum + e.minutes_used, 0);
-  const totalFocusTime = todayFocus.reduce((sum, s) => sum + s.duration_minutes, 0);
-  const screenTimePercent = Math.min(100, (totalScreenTime / (profile?.daily_screen_time_goal || 180)) * 100);
+  const progress = ((totalTime - timeLeft) / totalTime) * 100;
 
-  // Calculate streak
-  const completedDates = focusSessions
-    .filter((s) => s.is_completed)
-    .map((s) => s.created_at.split('T')[0])
-    .filter((date, index, self) => self.indexOf(date) === index);
-  const streak = calculateStreak(completedDates);
+  const handleStart = () => {
+    setIsRunning(true);
+  };
 
-  // Get top apps
-  const topApps = todayUsage
-    .sort((a, b) => b.minutes_used - a.minutes_used)
-    .slice(0, 3);
+  const handlePause = () => {
+    setIsRunning(false);
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    setTimeLeft(25 * 60);
+  };
 
   return (
-    <div className="pb-24 pt-4 px-4 max-w-4xl mx-auto">
+    <div className="pb-24 pt-4 px-4 max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Hey, {profile?.username}! 👋</h1>
-        <p className="text-gray-600 mt-1">Stay focused, build habits</p>
+        <h1 className="text-3xl font-bold text-gray-900">Welcome back! 👋</h1>
+        <p className="text-gray-600 mt-1">Ready to focus? Start a session now</p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <Card className="text-center">
-          <div className="text-2xl font-bold text-primary-600">{totalScreenTime}m</div>
-          <p className="text-xs text-gray-600 mt-1">Screen Time</p>
-        </Card>
-        <Card className="text-center">
-          <div className="text-2xl font-bold text-primary-600">{totalFocusTime}m</div>
-          <p className="text-xs text-gray-600 mt-1">Focus Time</p>
-        </Card>
-        <Card className="text-center">
-          <div className="text-2xl font-bold text-primary-600">{streak}🔥</div>
-          <p className="text-xs text-gray-600 mt-1">Streak</p>
-        </Card>
-      </div>
-
-      {/* Screen Time Ring */}
-      <Card className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Daily Goal</h2>
-          <Badge variant="primary">
-            {Math.round(screenTimePercent)}% used
-          </Badge>
-        </div>
-        <div className="flex justify-center py-4">
-          <ProgressRing percentage={screenTimePercent} size="md" />
-        </div>
-        <p className="text-center text-sm text-gray-600">
-          {totalScreenTime}m of {profile?.daily_screen_time_goal || 180}m
-        </p>
-      </Card>
-
-      {/* Focus Session CTA */}
-      <Card className="mb-6 bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-1">Start a Focus Session</h3>
-            <p className="text-sm text-gray-600">Minimize distractions and boost productivity</p>
+      {/* Main Timer */}
+      <Card className="mb-6 text-center bg-gradient-to-br from-primary-50 to-primary-100 border-primary-200">
+        <div className="mb-6">
+          <p className="text-gray-600 text-sm mb-2">Focus Session</p>
+          <div className="text-7xl font-bold text-primary-600 font-mono mb-4">
+            {formatTime(timeLeft)}
           </div>
-          <Button variant="primary" size="sm">
-            <Zap size={16} />
-            Start
+          <p className="text-gray-600">25 minute session</p>
+        </div>
+
+        {/* Progress Ring */}
+        <div className="mb-6">
+          <ProgressBar percentage={progress} showLabel={false} />
+        </div>
+
+        {/* Controls */}
+        <div className="flex gap-3 justify-center">
+          {!isRunning ? (
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<Play size={20} />}
+              onClick={handleStart}
+            >
+              Start
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<Pause size={20} />}
+              onClick={handlePause}
+            >
+              Pause
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="lg"
+            icon={<RotateCcw size={20} />}
+            onClick={handleReset}
+          >
+            Reset
           </Button>
         </div>
       </Card>
 
-      {/* Insights */}
-      {insights.length > 0 && (
-        <Card className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <BarChart3 size={18} />
-            Today's Insights
-          </h3>
-          <div className="space-y-2">
-            {insights.slice(0, 3).map((insight, index) => (
-              <p key={index} className="text-sm text-gray-700 leading-relaxed">
-                {insight}
-              </p>
-            ))}
-          </div>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <Card className="text-center">
+          <Zap size={24} className="mx-auto text-yellow-500 mb-2" />
+          <p className="text-2xl font-bold text-gray-900">{profile?.total_points || 0}</p>
+          <p className="text-xs text-gray-600 mt-1">Points</p>
         </Card>
-      )}
-
-      {/* Top Apps */}
-      {topApps.length > 0 && (
-        <Card className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Top Apps Today</h3>
-          <div className="space-y-3">
-            {topApps.map((app) => (
-              <div key={app.id}>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-medium text-gray-700">{app.app_name}</span>
-                  <span className="text-xs font-semibold text-primary-600">{app.minutes_used}m</span>
-                </div>
-                <ProgressBar
-                  percentage={(app.minutes_used / (totalScreenTime || 1)) * 100}
-                  showLabel={false}
-                  size="sm"
-                />
-              </div>
-            ))}
-          </div>
+        <Card className="text-center">
+          <Target size={24} className="mx-auto text-blue-500 mb-2" />
+          <p className="text-2xl font-bold text-gray-900">{sessionsToday}</p>
+          <p className="text-xs text-gray-600 mt-1">Today</p>
         </Card>
-      )}
+        <Card className="text-center">
+          <Users size={24} className="mx-auto text-purple-500 mb-2" />
+          <p className="text-2xl font-bold text-gray-900">{profile?.current_streak || 0}</p>
+          <p className="text-xs text-gray-600 mt-1">Day Streak</p>
+        </Card>
+        <Card className="text-center">
+          <Trophy size={24} className="mx-auto text-orange-500 mb-2" />
+          <p className="text-2xl font-bold text-gray-900">Level {profile?.level}</p>
+          <p className="text-xs text-gray-600 mt-1">Current Level</p>
+        </Card>
+      </div>
 
-      {/* Goals Section */}
-      <Card>
-        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Target size={18} />
-          Weekly Goals
-        </h3>
+      {/* Session History */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Sessions</h2>
         <div className="space-y-3">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm font-medium text-gray-700">Focus Sessions</span>
-              <span className="text-xs text-gray-600">4 of 7</span>
-            </div>
-            <ProgressBar percentage={57} showLabel={false} />
-          </div>
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm font-medium text-gray-700">Reduce Screen Time</span>
-              <span className="text-xs text-gray-600">In Progress</span>
-            </div>
-            <ProgressBar percentage={72} showLabel={false} />
-          </div>
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-gray-900">Deep Work Session</h3>
+                <p className="text-sm text-gray-600 mt-1">25 minutes completed</p>
+              </div>
+              <Badge variant="success">✓ Complete</Badge>
+            </Card>
+          ))}
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
